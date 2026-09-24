@@ -37,9 +37,21 @@
       }
     })();
 
+    const onSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+      const anchorNode = selection.anchorNode;
+      const specialCard = document.querySelector('.special-card');
+      if (specialCard && anchorNode && specialCard.contains(anchorNode)) {
+        handleCardLongPressOrContext();
+      }
+    };
+    document.addEventListener('selectionchange', onSelectionChange);
+
     return () => {
       if (unlistenClick) unlistenClick.then((u) => u());
       if (unlistenDismiss) unlistenDismiss.then((u) => u());
+      document.removeEventListener('selectionchange', onSelectionChange);
     };
   });
 
@@ -110,6 +122,7 @@
     aria-label="场景 A 专享测试卡片"
     oncontextmenu={handleCardLongPressOrContext}
     onpointerdown={handleCardLongPressOrContext}
+    ontouchstart={handleCardLongPressOrContext}
   >
     <div class="card-header">
       <span class="icon">🎯</span>

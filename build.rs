@@ -2,6 +2,8 @@ const COMMANDS: &[&str] = &[
     "set_menu_items",
     "get_menu_items",
     "clear_menu_items",
+    "register_listener",
+    "remove_listener",
 ];
 
 fn main() {

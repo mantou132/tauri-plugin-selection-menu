@@ -4,4 +4,6 @@ permissions = [
     "allow-set-menu-items",
     "allow-get-menu-items",
     "allow-clear-menu-items",
+    "allow-register-listener",
+    "allow-remove-listener",
 ]

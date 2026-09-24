@@ -319,6 +319,30 @@
           "markdownDescription": "Denies the get_menu_items command without any pre-configured scope."
         },
         {
+          "description": "Enables the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-listener",
+          "markdownDescription": "Enables the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-listener",
+          "markdownDescription": "Denies the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-listener",
+          "markdownDescription": "Enables the remove_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-listener",
+          "markdownDescription": "Denies the remove_listener command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_menu_items command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-menu-items",
@@ -331,10 +355,10 @@
           "markdownDescription": "Denies the set_menu_items command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`",
+          "description": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`"
+          "markdownDescription": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

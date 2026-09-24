@@ -33,6 +33,11 @@ class SelectionMenuContext: NSObject {
     func modify(builder: UIMenuBuilder, webview: WKWebView) {
         guard !items.isEmpty else { return }
 
+        let customMenuIdentifier = UIMenu.Identifier("com.plugin.selection_menu.custom_actions")
+        if builder.menu(for: customMenuIdentifier) != nil {
+            return
+        }
+
         var customActions = [UIMenuElement]()
         for item in items {
             let action = UIAction(title: item.label) { [weak webview, weak self] _ in
@@ -50,16 +55,20 @@ class SelectionMenuContext: NSObject {
             customActions.append(action)
         }
 
+        let customMenu = UIMenu(title: "", identifier: customMenuIdentifier, options: .displayInline, children: customActions)
+
         if !removeNative {
-            let customMenu = UIMenu(title: "", options: .displayInline, children: customActions)
-            builder.insertChild(customMenu, atEndOfMenu: .standardEdit)
-        } else {
-            builder.replaceChildren(ofMenu: .standardEdit) { _ in
-                return customActions
+            if builder.menu(for: .standardEdit) != nil {
+                builder.insertSibling(customMenu, afterMenu: .standardEdit)
+            } else {
+                builder.insertChild(customMenu, atEndOfMenu: .root)
             }
+        } else {
+            builder.remove(menu: .standardEdit)
             builder.remove(menu: .lookup)
             builder.remove(menu: .share)
             builder.remove(menu: .replace)
+            builder.insertChild(customMenu, atEndOfMenu: .root)
         }
     }
 }
@@ -90,16 +99,27 @@ class SelectionMenuHook {
         guard !isHookInstalled else { return }
         isHookInstalled = true
 
-        let originalSelector = #selector(WKWebView.buildMenu(with:))
-        let swizzledSelector = #selector(WKWebView.tauri_selectionMenu_buildMenu(with:))
+        swizzle(
+            cls: WKWebView.self,
+            originalSelector: #selector(WKWebView.buildMenu(with:)),
+            swizzledSelector: #selector(WKWebView.tauri_selectionMenu_buildMenu(with:))
+        )
 
-        guard let originalMethod = class_getInstanceMethod(WKWebView.self, originalSelector),
-              let swizzledMethod = class_getInstanceMethod(WKWebView.self, swizzledSelector) else {
+        swizzle(
+            cls: UIViewController.self,
+            originalSelector: #selector(UIViewController.buildMenu(with:)),
+            swizzledSelector: #selector(UIViewController.tauri_selectionMenu_vc_buildMenu(with:))
+        )
+    }
+
+    private static func swizzle(cls: AnyClass, originalSelector: Selector, swizzledSelector: Selector) {
+        guard let originalMethod = class_getInstanceMethod(cls, originalSelector),
+              let swizzledMethod = class_getInstanceMethod(cls, swizzledSelector) else {
             return
         }
 
         let didAddMethod = class_addMethod(
-            WKWebView.self,
+            cls,
             originalSelector,
             method_getImplementation(swizzledMethod),
             method_getTypeEncoding(swizzledMethod)
@@ -107,7 +127,7 @@ class SelectionMenuHook {
 
         if didAddMethod {
             class_replaceMethod(
-                WKWebView.self,
+                cls,
                 swizzledSelector,
                 method_getImplementation(originalMethod),
                 method_getTypeEncoding(originalMethod)
@@ -120,20 +140,49 @@ class SelectionMenuHook {
 
 extension WKWebView {
     @objc func tauri_selectionMenu_buildMenu(with builder: UIMenuBuilder) {
-        // 1. Call original WKWebView implementation
         self.tauri_selectionMenu_buildMenu(with: builder)
 
-        // 2. Not managed by this plugin, return
         guard let context = SelectionMenuHook.context(for: self) else {
             return
         }
 
-        // 3. Only handle contextual menu
         guard builder.system == .context else {
             return
         }
 
-        // 4. Modify selection menu
         context.modify(builder: builder, webview: self)
+    }
+}
+
+extension UIViewController {
+    @objc func tauri_selectionMenu_vc_buildMenu(with builder: UIMenuBuilder) {
+        self.tauri_selectionMenu_vc_buildMenu(with: builder)
+
+        guard builder.system == .context else {
+            return
+        }
+
+        guard let webview = tauri_selectionMenu_findWKWebView(in: self.view) else {
+            return
+        }
+
+        guard let context = SelectionMenuHook.context(for: webview) else {
+            return
+        }
+
+        context.modify(builder: builder, webview: webview)
+    }
+
+    private func tauri_selectionMenu_findWKWebView(in root: UIView?) -> WKWebView? {
+        guard let root = root else { return nil }
+        if let wk = root as? WKWebView {
+            return wk
+        }
+        for subview in root.subviews {
+            if let found = tauri_selectionMenu_findWKWebView(in: subview) {
+                return found
+            }
+        }
+        return nil
     }
 }
