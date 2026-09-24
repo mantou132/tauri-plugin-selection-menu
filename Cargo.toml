@@ -2,7 +2,9 @@
 name = "tauri-plugin-selection-menu"
 version = "0.1.0"
 authors = [ "mantou132" ]
-description = ""
+description = "Customize native text selection floating menu (capsule toolbar / context menu) on iOS and Android for Tauri v2."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mantou132/tauri-plugin-selection-menu"
 edition = "2021"
 rust-version = "1.77.2"
 exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
