@@ -1,8 +1,14 @@
 import UIKit
 import WebKit
 import ObjectiveC
+import Tauri
 
 private var selectionMenuContextKey: UInt8 = 0
+
+struct MenuItemClickPayload: Encodable {
+    let id: String
+    let text: String
+}
 
 class SelectionMenuContext: NSObject {
     weak var plugin: SelectionMenuPlugin?
@@ -33,12 +39,9 @@ class SelectionMenuContext: NSObject {
                 guard let webview = webview else { return }
                 webview.evaluateJavaScript("window.getSelection() ? window.getSelection().toString() : ''") { result, error in
                     let text = result as? String ?? ""
-                    let payload: [String: Any] = [
-                        "id": item.id,
-                        "text": text
-                    ]
-                    self?.plugin?.trigger("click", data: payload)
-                    self?.plugin?.trigger("menuItemClick", data: payload)
+                    let payload = MenuItemClickPayload(id: item.id, text: text)
+                    try? self?.plugin?.trigger("click", data: payload)
+                    try? self?.plugin?.trigger("menuItemClick", data: payload)
                     if self?.autoClear == true {
                         self?.clear()
                     }
@@ -48,7 +51,8 @@ class SelectionMenuContext: NSObject {
         }
 
         if !removeNative {
-            builder.insertElements(customActions, atEndOfMenu: .standardEdit)
+            let customMenu = UIMenu(title: "", options: .displayInline, children: customActions)
+            builder.insertChild(customMenu, atEndOfMenu: .standardEdit)
         } else {
             builder.replaceChildren(ofMenu: .standardEdit) { _ in
                 return customActions
@@ -86,7 +90,7 @@ class SelectionMenuHook {
         guard !isHookInstalled else { return }
         isHookInstalled = true
 
-        let originalSelector = Selector(("buildMenuWithBuilder:"))
+        let originalSelector = #selector(WKWebView.buildMenu(with:))
         let swizzledSelector = #selector(WKWebView.tauri_selectionMenu_buildMenu(with:))
 
         guard let originalMethod = class_getInstanceMethod(WKWebView.self, originalSelector),

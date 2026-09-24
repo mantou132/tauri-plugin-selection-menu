@@ -64,10 +64,10 @@ class SelectionMenuPlugin: Plugin {
     @objc public func get_menu_items(_ invoke: Invoke) throws {
         guard let webview = self.webview,
               let context = SelectionMenuHook.context(for: webview) else {
-            invoke.resolveObject([SelectionMenuItem]())
+            invoke.resolve([SelectionMenuItem]())
             return
         }
-        invoke.resolveObject(context.items)
+        invoke.resolve(context.items)
     }
 
     @objc public func getMenuItems(_ invoke: Invoke) throws {
