@@ -1,10 +1,12 @@
 ## Default Permission
 
-Default permissions for the plugin
+Default permissions for selection-menu plugin
 
 #### This default permission set includes the following:
 
-- `allow-ping`
+- `allow-set-menu-items`
+- `allow-get-menu-items`
+- `allow-clear-menu-items`
 
 ## Permission Table
 
@@ -18,12 +20,12 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`selection-menu:allow-ping`
+`selection-menu:allow-clear-menu-items`
 
 </td>
 <td>
 
-Enables the ping command without any pre-configured scope.
+Enables the clear_menu_items command without any pre-configured scope.
 
 </td>
 </tr>
@@ -31,12 +33,64 @@ Enables the ping command without any pre-configured scope.
 <tr>
 <td>
 
-`selection-menu:deny-ping`
+`selection-menu:deny-clear-menu-items`
 
 </td>
 <td>
 
-Denies the ping command without any pre-configured scope.
+Denies the clear_menu_items command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`selection-menu:allow-get-menu-items`
+
+</td>
+<td>
+
+Enables the get_menu_items command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`selection-menu:deny-get-menu-items`
+
+</td>
+<td>
+
+Denies the get_menu_items command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`selection-menu:allow-set-menu-items`
+
+</td>
+<td>
+
+Enables the set_menu_items command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`selection-menu:deny-set-menu-items`
+
+</td>
+<td>
+
+Denies the set_menu_items command without any pre-configured scope.
 
 </td>
 </tr>

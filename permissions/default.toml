@@ -1,3 +1,7 @@
 [default]
-description = "Default permissions for the plugin"
-permissions = ["allow-ping"]
+description = "Default permissions for selection-menu plugin"
+permissions = [
+    "allow-set-menu-items",
+    "allow-get-menu-items",
+    "allow-clear-menu-items",
+]

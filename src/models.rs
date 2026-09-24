@@ -1,13 +1,31 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PingRequest {
-  pub value: Option<String>,
+pub struct SelectionMenuItem {
+    pub id: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+fn default_auto_clear() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PingResponse {
-  pub value: Option<String>,
+pub struct SetMenuItemsOptions {
+    pub items: Vec<SelectionMenuItem>,
+    #[serde(default)]
+    pub remove_native: bool,
+    #[serde(default = "default_auto_clear")]
+    pub auto_clear: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuItemClickPayload {
+    pub id: String,
+    pub text: String,
 }

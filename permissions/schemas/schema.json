@@ -295,22 +295,46 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the ping command without any pre-configured scope.",
+          "description": "Enables the clear_menu_items command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-ping",
-          "markdownDescription": "Enables the ping command without any pre-configured scope."
+          "const": "allow-clear-menu-items",
+          "markdownDescription": "Enables the clear_menu_items command without any pre-configured scope."
         },
         {
-          "description": "Denies the ping command without any pre-configured scope.",
+          "description": "Denies the clear_menu_items command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-ping",
-          "markdownDescription": "Denies the ping command without any pre-configured scope."
+          "const": "deny-clear-menu-items",
+          "markdownDescription": "Denies the clear_menu_items command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Enables the get_menu_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-menu-items",
+          "markdownDescription": "Enables the get_menu_items command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_menu_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-menu-items",
+          "markdownDescription": "Denies the get_menu_items command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_menu_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-menu-items",
+          "markdownDescription": "Enables the set_menu_items command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_menu_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-menu-items",
+          "markdownDescription": "Denies the set_menu_items command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
+          "markdownDescription": "Default permissions for selection-menu plugin\n#### This default permission set includes:\n\n- `allow-set-menu-items`\n- `allow-get-menu-items`\n- `allow-clear-menu-items`"
         }
       ]
     }

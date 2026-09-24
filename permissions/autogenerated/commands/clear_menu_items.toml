@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-clear-menu-items"
+description = "Enables the clear_menu_items command without any pre-configured scope."
+commands.allow = ["clear_menu_items"]
+
+[[permission]]
+identifier = "deny-clear-menu-items"
+description = "Denies the clear_menu_items command without any pre-configured scope."
+commands.deny = ["clear_menu_items"]

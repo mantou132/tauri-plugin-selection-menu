@@ -35,7 +35,11 @@ impl<R: Runtime, T: Manager<R>> crate::SelectionMenuExt<R> for T {
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("selection-menu")
-    .invoke_handler(tauri::generate_handler![commands::ping])
+    .invoke_handler(tauri::generate_handler![
+      commands::set_menu_items,
+      commands::get_menu_items,
+      commands::clear_menu_items,
+    ])
     .setup(|app, api| {
       #[cfg(mobile)]
       let selection_menu = mobile::init(app, api)?;
