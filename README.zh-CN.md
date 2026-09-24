@@ -107,30 +107,42 @@ pub fn run() {
 
 ## 📖 使用指南
 
-### 1. 监听菜单点击与关闭事件
+### 1. 快捷用法：直接绑定 `onClick` 回调（推荐）
+
+无需繁琐的 ID 匹配与事件解绑，直接为每个菜单项传入 `onClick` 回调，选中文本 `{ text }` 即可直接获取：
 
 ```typescript
-import { onMenuItemClick, onMenuDismiss } from 'tauri-plugin-selection-menu-api';
+import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
-// 监听自定义项点击
-const unlistenClick = await onMenuItemClick((event) => {
-  console.log(`点击菜单 ID: ${event.id}`);
-  console.log(`选中的文本: "${event.text}"`);
-});
-
-// 监听原生胶囊菜单关闭
-const unlistenDismiss = await onMenuDismiss(() => {
-  console.log('划词菜单已关闭');
-});
-
-// 组件卸载时释放监听
-// unlistenClick();
-// unlistenDismiss();
+// 在划词或卡片选区时注入自定义菜单
+await setMenuItems(
+  [
+    {
+      label: 'Ask in New Session',
+      onClick: ({ text }) => {
+        openNewSession(text);
+      },
+    },
+    {
+      label: 'Search in Notes',
+      onClick: ({ text }) => {
+        searchNotes(text);
+      },
+    },
+  ],
+  {
+    removeNative: false, // 设为 true 可隐藏系统默认的复制、分享等
+    autoClear: true,     // 菜单关闭时自动清理（默认 true）
+    onDismiss: () => {
+      console.log('划词菜单已关闭');
+    },
+  },
+);
 ```
 
 ---
 
-### 2. 局部卡片上下文菜单（自动清理推荐用法）
+### 2. 局部卡片划词菜单（自动清理推荐用法）
 
 在特定卡片或文本区域选中时动态配置自定义菜单，菜单关闭后自动恢复默认：
 
@@ -144,16 +156,47 @@ document.addEventListener('selectionchange', () => {
   const targetCard = document.querySelector('.ai-message-card');
   if (targetCard && targetCard.contains(selection.anchorNode)) {
     // 仅在当前卡片选中文本时注入 AI 快捷操作
-    setMenuItems({
-      items: [
-        { id: 'ask-ai', label: '发往新会话' },
-        { id: 'search-notes', label: '搜索笔记' },
-        { id: 'quote', label: '引用文本' },
+    setMenuItems(
+      [
+        {
+          label: '发往新会话',
+          onClick: ({ text }) => openNewSession(text),
+        },
+        {
+          label: '搜索笔记',
+          onClick: ({ text }) => searchNotes(text),
+        },
+        {
+          label: '引用文本',
+          onClick: ({ text }) => quoteText(text),
+        },
       ],
-      removeNative: false, // 保留系统的复制、分享等
-      autoClear: true,     // 菜单关闭后自动清理自定义项
-    });
+      {
+        removeNative: false,
+        autoClear: true,
+      },
+    );
   }
+});
+```
+
+---
+
+### 3. 全局事件监听模式（可选）
+
+如果你喜欢使用中心化全局事件分发，也可以为菜单项指定 `id` 并通过 `onMenuItemClick` 统一监听：
+
+```typescript
+import { setMenuItems, onMenuItemClick, onMenuDismiss } from 'tauri-plugin-selection-menu-api';
+
+// 全局监听点击
+const unlistenClick = await onMenuItemClick((event) => {
+  console.log(`点击菜单 ID: ${event.id}, 选中文本: "${event.text}"`);
+});
+
+// 全局监听关闭
+const unlistenDismiss = await onMenuDismiss(() => {
+  console.log('划词菜单已关闭');
 });
 ```
 
@@ -216,11 +259,20 @@ console.log('当前激活菜单:', current);
 
 ### 核心方法
 
-#### `setMenuItems(options)`
-配置划词浮层菜单中的自定义操作项。
+#### `setMenuItems(items, config?)` / `setMenuItems(options)`
+配置划词浮层菜单中的自定义操作项。支持两种调用签名：
 
 ```typescript
-function setMenuItems(options: SetMenuItemsOptions | SelectionMenuItem[]): Promise<void>;
+// 1. 数组 + 可选配置（推荐）
+function setMenuItems(
+  items: SelectionMenuItemInput[],
+  config?: SetMenuItemsConfig
+): Promise<void>;
+
+// 2. 单个选项对象
+function setMenuItems(
+  options: SetMenuItemsOptions
+): Promise<void>;
 ```
 
 #### `getMenuItems()`
@@ -238,20 +290,20 @@ function clearMenuItems(): Promise<void>;
 ```
 
 #### `onMenuItemClick(handler)`
-监听自定义菜单项的点击事件。
+全局监听自定义菜单项的点击事件（可选）。
 
 ```typescript
 function onMenuItemClick(
-  handler: (event: SelectionMenuItemClickEvent) => void
+  handler: (event: SelectionMenuItemClickEvent) => void | Promise<void>
 ): Promise<PluginListener>;
 ```
 
 #### `onMenuDismiss(handler)`
-监听原生浮层菜单关闭/消失事件。
+全局监听原生浮层菜单关闭/消失事件。
 
 ```typescript
 function onMenuDismiss(
-  handler: () => void
+  handler: () => void | Promise<void>
 ): Promise<PluginListener>;
 ```
 
@@ -259,25 +311,32 @@ function onMenuDismiss(
 
 ### 类型定义
 
-#### `SelectionMenuItem`
+#### `SelectionMenuItemInput`
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
-| `id` | `string` | 菜单项唯一标识符。 |
-| `label` | `string` | 按钮显示的文案。 |
+| `label` | `string` | 按钮显示的文案（必填）。 |
+| `id` | `string?` | 菜单项唯一标识符（可选，不传时系统自动生成）。 |
 | `icon` | `string?` | 可选图标标识符。 |
+| `onClick` | `(event: { id: string, text: string }) => void \| Promise<void>` | 可选点击回调函数，直接接收选中的文本 `{ text }`。 |
 
-#### `SetMenuItemsOptions`
+#### `SetMenuItemsConfig`
 | 字段 | 类型 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `items` | `SelectionMenuItem[]` | `[]` | 自定义菜单项列表。 |
 | `removeNative` | `boolean` | `false` | 是否替换/移除系统默认操作（复制、查询、分享等）。 |
 | `autoClear` | `boolean` | `true` | 是否在菜单关闭或点击后自动清空自定义菜单项。 |
+| `onDismiss` | `() => void \| Promise<void>` | `undefined` | 划词胶囊菜单关闭时的可选回调。 |
+
+#### `SetMenuItemsOptions`
+| 字段 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `items` | `SelectionMenuItemInput[]` | 自定义菜单项列表。 |
+| 继承 | `SetMenuItemsConfig` | 包含 `removeNative`, `autoClear`, `onDismiss`。 |
 
 #### `SelectionMenuItemClickEvent`
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
 | `id` | `string` | 被点击的菜单项 ID。 |
-| `text` | `string` | 点击时被选中的文本内容。 |
+| `text` | `string` | 点击时选区中的文本内容。 |
 
 ---
 

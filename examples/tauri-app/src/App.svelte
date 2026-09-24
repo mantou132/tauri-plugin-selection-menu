@@ -55,19 +55,39 @@
     };
   });
 
-  // 场景 A：长按或右键自动注入专享菜单，菜单关闭自动清理
+  // 场景 A：长按或划词自动注入专享菜单，直接使用 onClick 回调，关闭自动清理
   async function handleCardLongPressOrContext(e) {
     try {
-      await setMenuItems({
-        items: [
-          { id: 'ask-session', label: 'Ask in New Session' },
-          { id: 'search-notes', label: 'Search in Notes' },
-          { id: 'copy-quote', label: 'Quote Selection' },
+      await setMenuItems(
+        [
+          {
+            label: 'Ask in New Session',
+            onClick: ({ text }) => {
+              addLog(`💬 [onClick] 发往新会话: "${text}"`);
+            },
+          },
+          {
+            label: 'Search in Notes',
+            onClick: ({ text }) => {
+              addLog(`🔍 [onClick] 搜索笔记: "${text}"`);
+            },
+          },
+          {
+            label: 'Quote Selection',
+            onClick: ({ text }) => {
+              addLog(`📝 [onClick] 引用内容: "${text}"`);
+            },
+          },
         ],
-        removeNative: removeNativeEnabled,
-        autoClear: true,
-      });
-      addLog('✨ 已为专享卡片注入菜单 (autoClear=true)');
+        {
+          removeNative: removeNativeEnabled,
+          autoClear: true,
+          onDismiss: () => {
+            addLog(`🔒 [onDismiss] 专享菜单已关闭`);
+          },
+        },
+      );
+      addLog('✨ 已注入专享菜单 (带 onClick 回调)');
       checkCurrentItems();
     } catch (err) {
       addLog(`❌ 注入菜单失败: ${err}`);

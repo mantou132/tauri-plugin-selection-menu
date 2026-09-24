@@ -107,34 +107,43 @@ In your Tauri capabilities configuration file (e.g. `src-tauri/capabilities/defa
 
 ## 📖 Usage Guide
 
-### 1. Register Event Listeners
+### 1. Direct `onClick` Handlers (Recommended)
 
-Listen for user clicks on custom menu items and when the menu dismisses:
+No need for manual IDs or separate event listeners. Pass an `onClick` callback directly to each menu item, and receive the selected text `{ text }`:
 
 ```typescript
-import { onMenuItemClick, onMenuDismiss } from 'tauri-plugin-selection-menu-api';
+import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
-// Listen to menu item clicks
-const unlistenClick = await onMenuItemClick((event) => {
-  console.log(`Action ID: ${event.id}`);
-  console.log(`Selected Text: "${event.text}"`);
-});
-
-// Listen to menu dismiss (close)
-const unlistenDismiss = await onMenuDismiss(() => {
-  console.log('Selection capsule closed');
-});
-
-// Clean up when unmounting
-// unlistenClick();
-// unlistenDismiss();
+await setMenuItems(
+  [
+    {
+      label: 'Ask in New Session',
+      onClick: ({ text }) => {
+        openNewSession(text);
+      },
+    },
+    {
+      label: 'Search in Notes',
+      onClick: ({ text }) => {
+        searchInNotes(text);
+      },
+    },
+  ],
+  {
+    removeNative: false, // Set to true to hide native Copy, Share, etc.
+    autoClear: true,     // Automatically reset when menu closes (default: true)
+    onDismiss: () => {
+      console.log('Selection menu closed');
+    },
+  },
+);
 ```
 
 ---
 
 ### 2. Contextual Menu for Specific Card (Auto-clean)
 
-Set custom menu items dynamically (e.g. on `selectionchange` or context interaction). When the menu closes or the user clicks an action, it automatically cleans up:
+Set custom menu items dynamically (e.g. on `selectionchange` or user interaction). When the menu closes or the user clicks an action, it automatically cleans up:
 
 ```typescript
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
@@ -147,16 +156,44 @@ document.addEventListener('selectionchange', () => {
   const targetCard = document.querySelector('.my-ai-card');
   if (targetCard && targetCard.contains(selection.anchorNode)) {
     // Inject contextual items only for this card
-    setMenuItems({
-      items: [
-        { id: 'ask-ai', label: 'Ask AI' },
-        { id: 'search-notes', label: 'Search in Notes' },
-        { id: 'quote', label: 'Quote Selection' },
+    setMenuItems(
+      [
+        {
+          label: 'Ask AI',
+          onClick: ({ text }) => askAI(text),
+        },
+        {
+          label: 'Quote Selection',
+          onClick: ({ text }) => quoteSelection(text),
+        },
       ],
-      removeNative: false, // Keep native Copy, Share, etc.
-      autoClear: true,     // Automatically clean up when dismissed
-    });
+      {
+        removeNative: false, // Keep native Copy, Share, etc.
+        autoClear: true,     // Automatically clean up when dismissed
+      },
+    );
   }
+});
+```
+
+---
+
+### 3. Global Event Listener Pattern (Optional)
+
+If you prefer centralized global event handling, you can assign IDs and listen via `onMenuItemClick`:
+
+```typescript
+import { setMenuItems, onMenuItemClick, onMenuDismiss } from 'tauri-plugin-selection-menu-api';
+
+// Listen to menu item clicks
+const unlistenClick = await onMenuItemClick((event) => {
+  console.log(`Action ID: ${event.id}`);
+  console.log(`Selected Text: "${event.text}"`);
+});
+
+// Listen to menu dismiss (close)
+const unlistenDismiss = await onMenuDismiss(() => {
+  console.log('Selection capsule closed');
 });
 ```
 
@@ -219,11 +256,20 @@ console.log('Current items:', currentItems);
 
 ### Methods
 
-#### `setMenuItems(options)`
-Configures custom items to display in the native text selection floating menu.
+#### `setMenuItems(items, config?)` / `setMenuItems(options)`
+Configures custom items to display in the native text selection floating menu. Supports two call signatures:
 
 ```typescript
-function setMenuItems(options: SetMenuItemsOptions | SelectionMenuItem[]): Promise<void>;
+// 1. Array + optional config (Recommended)
+function setMenuItems(
+  items: SelectionMenuItemInput[],
+  config?: SetMenuItemsConfig
+): Promise<void>;
+
+// 2. Single options object
+function setMenuItems(
+  options: SetMenuItemsOptions
+): Promise<void>;
 ```
 
 #### `getMenuItems()`
@@ -241,20 +287,20 @@ function clearMenuItems(): Promise<void>;
 ```
 
 #### `onMenuItemClick(handler)`
-Listens for clicks on any custom menu item.
+Listens globally for clicks on any custom menu item (optional).
 
 ```typescript
 function onMenuItemClick(
-  handler: (event: SelectionMenuItemClickEvent) => void
+  handler: (event: SelectionMenuItemClickEvent) => void | Promise<void>
 ): Promise<PluginListener>;
 ```
 
 #### `onMenuDismiss(handler)`
-Listens for when the native selection menu is dismissed or closed.
+Listens globally for when the native selection menu is dismissed or closed.
 
 ```typescript
 function onMenuDismiss(
-  handler: () => void
+  handler: () => void | Promise<void>
 ): Promise<PluginListener>;
 ```
 
@@ -262,19 +308,26 @@ function onMenuDismiss(
 
 ### Types & Interfaces
 
-#### `SelectionMenuItem`
+#### `SelectionMenuItemInput`
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `string` | Unique identifier for the menu item. |
-| `label` | `string` | Label text displayed on the menu button. |
+| `label` | `string` | Label text displayed on the menu button (required). |
+| `id` | `string?` | Optional unique identifier. If omitted, one is generated automatically. |
 | `icon` | `string?` | Optional icon identifier. |
+| `onClick` | `(event: { id: string, text: string }) => void \| Promise<void>` | Optional click callback invoked with the selected text `{ text }`. |
 
-#### `SetMenuItemsOptions`
+#### `SetMenuItemsConfig`
 | Property | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `items` | `SelectionMenuItem[]` | `[]` | Array of custom menu items. |
 | `removeNative` | `boolean` | `false` | Whether to remove/replace system items (Copy, Share, Look Up). |
 | `autoClear` | `boolean` | `true` | Automatically clear custom items when the menu closes or an item is clicked. |
+| `onDismiss` | `() => void \| Promise<void>` | `undefined` | Optional callback invoked when the capsule menu is dismissed. |
+
+#### `SetMenuItemsOptions`
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `items` | `SelectionMenuItemInput[]` | Array of custom menu items. |
+| Extends | `SetMenuItemsConfig` | Includes `removeNative`, `autoClear`, `onDismiss`. |
 
 #### `SelectionMenuItemClickEvent`
 | Property | Type | Description |

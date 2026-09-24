@@ -15,23 +15,6 @@ export interface SelectionMenuItem {
   icon?: string;
 }
 
-export interface SetMenuItemsOptions {
-  /**
-   * List of custom menu items to inject into the selection menu.
-   */
-  items: SelectionMenuItem[];
-  /**
-   * Whether to remove/minimize native menu items (e.g. Look Up, Share, Translate).
-   * Default: false
-   */
-  removeNative?: boolean;
-  /**
-   * Automatically clear custom menu items when the menu closes or an item is clicked.
-   * Default: true
-   */
-  autoClear?: boolean;
-}
-
 export interface SelectionMenuItemClickEvent {
   /**
    * ID of the clicked menu item.
@@ -43,22 +26,196 @@ export interface SelectionMenuItemClickEvent {
   text: string;
 }
 
-export type MenuItemClickHandler = (event: SelectionMenuItemClickEvent) => void;
-export type MenuDismissHandler = () => void;
+export type MenuItemClickHandler = (
+  event: SelectionMenuItemClickEvent
+) => void | Promise<void>;
+export type MenuDismissHandler = () => void | Promise<void>;
+
+export interface SelectionMenuItemInput {
+  /**
+   * Unique identifier for the menu item. If omitted, an ID will be generated automatically.
+   */
+  id?: string;
+  /**
+   * Display label shown in the selection menu.
+   */
+  label: string;
+  /**
+   * Optional icon name or resource identifier.
+   */
+  icon?: string;
+  /**
+   * Callback invoked when this menu item is tapped in the native selection menu.
+   */
+  onClick?: MenuItemClickHandler;
+}
+
+export interface SetMenuItemsConfig {
+  /**
+   * Whether to remove/minimize native menu items (e.g. Look Up, Share, Translate).
+   * Default: false
+   */
+  removeNative?: boolean;
+  /**
+   * Automatically clear custom menu items when the menu closes or an item is clicked.
+   * Default: true
+   */
+  autoClear?: boolean;
+  /**
+   * Optional callback invoked when the native selection menu closes.
+   */
+  onDismiss?: MenuDismissHandler;
+}
+
+export interface SetMenuItemsOptions extends SetMenuItemsConfig {
+  /**
+   * List of custom menu items to inject into the selection menu.
+   */
+  items: SelectionMenuItemInput[];
+}
+
+let idCounter = 0;
+function generateItemId(label: string): string {
+  idCounter = (idCounter + 1) % 1000000;
+  const safeLabel = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .slice(0, 16);
+  return `${safeLabel || 'item'}_${Date.now().toString(36)}_${idCounter}`;
+}
+
+const itemCallbacks = new Map<string, MenuItemClickHandler>();
+let activeDismissCallback: MenuDismissHandler | null = null;
+let lastAutoClear = true;
+let internalListenersPromise: Promise<void> | null = null;
+
+function ensureInternalListeners(): Promise<void> {
+  if (!internalListenersPromise) {
+    internalListenersPromise = (async () => {
+      try {
+        await addPluginListener<SelectionMenuItemClickEvent>(
+          'selection-menu',
+          'click',
+          (event) => {
+            const callback = itemCallbacks.get(event.id);
+            if (callback) {
+              try {
+                callback(event);
+              } catch (e) {
+                console.error('[selection-menu] Error in item onClick handler:', e);
+              }
+            }
+          }
+        );
+
+        await addPluginListener<void>(
+          'selection-menu',
+          'dismiss',
+          () => {
+            if (activeDismissCallback) {
+              try {
+                activeDismissCallback();
+              } catch (e) {
+                console.error('[selection-menu] Error in onDismiss handler:', e);
+              }
+            }
+            if (lastAutoClear) {
+              itemCallbacks.clear();
+              activeDismissCallback = null;
+            }
+          }
+        );
+      } catch (err) {
+        internalListenersPromise = null;
+        throw err;
+      }
+    })();
+  }
+  return internalListenersPromise;
+}
 
 /**
  * Configure custom items to display in the native text selection floating menu.
  *
- * @param options Menu configuration options or array of menu items.
+ * Supports two signatures:
+ * 1. Array of items with optional config object:
+ * ```ts
+ * await setMenuItems(
+ *   [
+ *     {
+ *       label: 'Ask in New Session',
+ *       onClick: ({ text }) => {
+ *         openNewSession(text);
+ *       },
+ *     },
+ *   ],
+ *   {
+ *     removeNative: false,
+ *   }
+ * );
+ * ```
+ *
+ * 2. Single options object:
+ * ```ts
+ * await setMenuItems({
+ *   items: [
+ *     {
+ *       label: 'Ask in New Session',
+ *       onClick: ({ text }) => { ... },
+ *     },
+ *   ],
+ *   removeNative: false,
+ * });
+ * ```
  */
+export function setMenuItems(
+  items: SelectionMenuItemInput[],
+  config?: SetMenuItemsConfig
+): Promise<void>;
+export function setMenuItems(
+  options: SetMenuItemsOptions
+): Promise<void>;
 export async function setMenuItems(
-  options: SetMenuItemsOptions | SelectionMenuItem[]
+  firstArg: SelectionMenuItemInput[] | SetMenuItemsOptions,
+  secondArg?: SetMenuItemsConfig
 ): Promise<void> {
-  const opts: SetMenuItemsOptions = Array.isArray(options) ? { items: options } : options;
-  const payload: SetMenuItemsOptions = {
-    items: opts.items || [],
-    removeNative: !!opts.removeNative,
-    autoClear: opts.autoClear ?? true,
+  await ensureInternalListeners();
+
+  let rawItems: SelectionMenuItemInput[];
+  let config: SetMenuItemsConfig;
+
+  if (Array.isArray(firstArg)) {
+    rawItems = firstArg;
+    config = secondArg || {};
+  } else {
+    rawItems = firstArg.items || [];
+    config = firstArg;
+  }
+
+  const removeNative = !!config.removeNative;
+  const autoClear = config.autoClear ?? true;
+  lastAutoClear = autoClear;
+  activeDismissCallback = config.onDismiss || null;
+
+  // Clear previous callback map and register new item callbacks
+  itemCallbacks.clear();
+
+  const serializedItems: SelectionMenuItem[] = rawItems.map((item) => {
+    const id = item.id || generateItemId(item.label);
+    if (item.onClick) {
+      itemCallbacks.set(id, item.onClick);
+    }
+    return {
+      id,
+      label: item.label,
+      icon: item.icon,
+    };
+  });
+
+  const payload = {
+    items: serializedItems,
+    removeNative,
+    autoClear,
   };
 
   await invoke('plugin:selection-menu|set_menu_items', {
@@ -78,13 +235,15 @@ export async function getMenuItems(): Promise<SelectionMenuItem[]> {
  * Clear all custom menu items immediately.
  */
 export async function clearMenuItems(): Promise<void> {
+  itemCallbacks.clear();
+  activeDismissCallback = null;
   await invoke('plugin:selection-menu|clear_menu_items');
 }
 
 /**
- * Listen for selection menu item click events.
+ * Listen for selection menu item click events globally.
  *
- * @param handler Callback invoked when a custom menu item is tapped, receiving `{ id, text }`.
+ * @param handler Callback invoked when any custom menu item is tapped, receiving `{ id, text }`.
  * @returns A promise that resolves to a `PluginListener` to unsubscribe.
  */
 export async function onMenuItemClick(
@@ -98,7 +257,7 @@ export async function onMenuItemClick(
 }
 
 /**
- * Listen for selection menu dismiss/close events.
+ * Listen for selection menu dismiss/close events globally.
  *
  * @param handler Callback invoked when the selection menu closes.
  * @returns A promise that resolves to a `PluginListener` to unsubscribe.
