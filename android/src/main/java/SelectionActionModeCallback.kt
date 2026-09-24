@@ -25,27 +25,21 @@ class SelectionActionModeCallback(
     }
 
     override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+        plugin.handleActionModeStarted(mode)
         val result = wrapped.onCreateActionMode(mode, menu)
         val items = plugin.currentItems
         if (items.isNotEmpty()) {
             if (plugin.removeNative) {
                 menu.clear()
             }
-            for ((index, item) in items.withIndex()) {
-                val menuItem = menu.add(
-                    CUSTOM_GROUP_ID,
-                    CUSTOM_ITEM_ID_OFFSET + index,
-                    Menu.NONE,
-                    item.label
-                )
-                menuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-            }
+            populateCustomItems(menu, items)
             return true
         }
         return result
     }
 
     override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        plugin.handleActionModeStarted(mode)
         val result = wrapped.onPrepareActionMode(mode, menu)
         val items = plugin.currentItems
         if (items.isNotEmpty()) {
@@ -62,19 +56,24 @@ class SelectionActionModeCallback(
                 }
             }
             if (menu.findItem(CUSTOM_ITEM_ID_OFFSET) == null) {
-                for ((index, item) in items.withIndex()) {
-                    val menuItem = menu.add(
-                        CUSTOM_GROUP_ID,
-                        CUSTOM_ITEM_ID_OFFSET + index,
-                        Menu.NONE,
-                        item.label
-                    )
-                    menuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                }
+                populateCustomItems(menu, items)
             }
             return true
         }
         return result
+    }
+
+    private fun populateCustomItems(menu: Menu, items: List<SelectionMenuItem>) {
+        menu.removeGroup(CUSTOM_GROUP_ID)
+        for ((index, item) in items.withIndex()) {
+            val menuItem = menu.add(
+                CUSTOM_GROUP_ID,
+                CUSTOM_ITEM_ID_OFFSET + index,
+                Menu.NONE,
+                item.label
+            )
+            menuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        }
     }
 
     override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
@@ -82,16 +81,18 @@ class SelectionActionModeCallback(
             val index = item.itemId - CUSTOM_ITEM_ID_OFFSET
             val items = plugin.currentItems
             if (index in items.indices) {
-                plugin.handleItemClick(items[index])
+                plugin.handleItemClick(items[index], mode)
+            } else {
+                mode.finish()
             }
-            mode.finish()
             return true
         }
+        plugin.handleNativeItemClicked()
         return wrapped.onActionItemClicked(mode, item)
     }
 
     override fun onDestroyActionMode(mode: ActionMode) {
         wrapped.onDestroyActionMode(mode)
-        plugin.handleActionModeDestroyed()
+        plugin.handleActionModeDestroyed(mode)
     }
 }

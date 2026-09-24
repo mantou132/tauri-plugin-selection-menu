@@ -1,6 +1,10 @@
 package com.plugin.selection_menu
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.ActionMode
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -14,7 +18,12 @@ import app.tauri.plugin.Plugin
 @TauriPlugin
 class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
+    companion object {
+        private const val TAG = "SelectionMenuPlugin"
+    }
+
     private var webView: WebView? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @Volatile
     var currentItems: List<SelectionMenuItem> = emptyList()
@@ -24,6 +33,12 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Volatile
     var autoClear: Boolean = true
+
+    @Volatile
+    var activeActionMode: ActionMode? = null
+
+    private var pendingDismissRunnable: Runnable? = null
+    private var wasItemClicked: Boolean = false
 
     override fun load(webView: WebView) {
         this.webView = webView
@@ -77,6 +92,14 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
             this.currentItems = args.resolvedItems
             this.removeNative = args.resolvedRemoveNative
             this.autoClear = args.resolvedAutoClear
+            cancelDismissCheck()
+            activity.runOnUiThread {
+                try {
+                    activeActionMode?.invalidate()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to invalidate ActionMode", e)
+                }
+            }
             invoke.resolve()
         } catch (e: Exception) {
             invoke.reject(e.message, null, e, null)
@@ -101,6 +124,13 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun clear_menu_items(invoke: Invoke) {
         this.currentItems = emptyList()
+        activity.runOnUiThread {
+            try {
+                activeActionMode?.invalidate()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to invalidate ActionMode", e)
+            }
+        }
         invoke.resolve()
     }
 
@@ -109,29 +139,114 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
         clear_menu_items(invoke)
     }
 
-    fun handleItemClick(item: SelectionMenuItem) {
-        val wv = webView ?: return
-        activity.runOnUiThread {
-            wv.evaluateJavascript("window.getSelection() ? window.getSelection().toString() : ''") { rawResult ->
-                val text = cleanJsResult(rawResult)
-                val payload = JSObject().apply {
-                    put("id", item.id)
-                    put("text", text)
-                }
-                trigger("click", payload)
-                trigger("menuItemClick", payload)
-                if (autoClear) {
-                    currentItems = emptyList()
-                }
-            }
+    fun handleActionModeStarting() {
+        cancelDismissCheck()
+    }
+
+    fun handleActionModeStarted(mode: ActionMode) {
+        cancelDismissCheck()
+        activeActionMode = mode
+        wasItemClicked = false
+    }
+
+    fun handleNativeItemClicked() {
+        wasItemClicked = true
+    }
+
+    fun cancelDismissCheck() {
+        pendingDismissRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            pendingDismissRunnable = null
         }
     }
 
-    fun handleActionModeDestroyed() {
+    fun handleActionModeDestroyed(mode: ActionMode) {
+        if (activeActionMode === mode) {
+            activeActionMode = null
+        }
+        scheduleDismissCheck(if (wasItemClicked) 100L else 350L)
+    }
+
+    private fun scheduleDismissCheck(delayMs: Long) {
+        cancelDismissCheck()
+        val runnable = Runnable {
+            pendingDismissRunnable = null
+            if (activeActionMode != null) {
+                return@Runnable
+            }
+
+            if (wasItemClicked) {
+                wasItemClicked = false
+                performDismissCleanup()
+                return@Runnable
+            }
+
+            val wv = webView
+            if (wv != null) {
+                wv.evaluateJavascript("window.getSelection() ? !window.getSelection().isCollapsed : false") { hasSelectionRaw ->
+                    val hasSelection = hasSelectionRaw?.trim() == "true"
+                    if (activeActionMode == null) {
+                        if (!hasSelection) {
+                            performDismissCleanup()
+                        } else {
+                            scheduleDismissCheck(500L)
+                        }
+                    }
+                }
+            } else {
+                performDismissCleanup()
+            }
+        }
+        pendingDismissRunnable = runnable
+        mainHandler.postDelayed(runnable, delayMs)
+    }
+
+    private fun performDismissCleanup() {
         if (autoClear) {
             currentItems = emptyList()
         }
         trigger("dismiss", JSObject())
+    }
+
+    fun handleItemClick(item: SelectionMenuItem, mode: ActionMode?) {
+        wasItemClicked = true
+        val wv = webView
+        if (wv != null) {
+            activity.runOnUiThread {
+                wv.evaluateJavascript("window.getSelection() ? window.getSelection().toString() : ''") { rawResult ->
+                    val text = cleanJsResult(rawResult)
+                    val payload = JSObject().apply {
+                        put("id", item.id)
+                        put("text", text)
+                    }
+                    trigger("click", payload)
+                    trigger("menuItemClick", payload)
+                    if (autoClear) {
+                        currentItems = emptyList()
+                    }
+                    try {
+                        mode?.finish()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to finish ActionMode", e)
+                    }
+                }
+            }
+        } else {
+            val payload = JSObject().apply {
+                put("id", item.id)
+                put("text", "")
+            }
+            trigger("click", payload)
+            trigger("menuItemClick", payload)
+            if (autoClear) {
+                currentItems = emptyList()
+            }
+            try {
+                mode?.finish()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to finish ActionMode", e)
+            }
+        }
     }
 
     private fun cleanJsResult(raw: String?): String {

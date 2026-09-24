@@ -23,8 +23,13 @@ class SelectionActionModeLayout @JvmOverloads constructor(
     ): ActionMode? {
         val activePlugin = plugin
         if (activePlugin != null && type == ActionMode.TYPE_FLOATING) {
+            activePlugin.handleActionModeStarting()
             val wrapped = SelectionActionModeCallback(callback, activePlugin)
-            return super.startActionModeForChild(originalView, wrapped, type)
+            val mode = super.startActionModeForChild(originalView, wrapped, type)
+            if (mode != null) {
+                activePlugin.handleActionModeStarted(mode)
+            }
+            return mode
         }
         return super.startActionModeForChild(originalView, callback, type)
     }
@@ -35,8 +40,13 @@ class SelectionActionModeLayout @JvmOverloads constructor(
     ): ActionMode? {
         val activePlugin = plugin
         if (activePlugin != null) {
+            activePlugin.handleActionModeStarting()
             val wrapped = SelectionActionModeCallback(callback, activePlugin)
-            return super.startActionModeForChild(originalView, wrapped)
+            val mode = super.startActionModeForChild(originalView, wrapped)
+            if (mode != null) {
+                activePlugin.handleActionModeStarted(mode)
+            }
+            return mode
         }
         return super.startActionModeForChild(originalView, callback)
     }
