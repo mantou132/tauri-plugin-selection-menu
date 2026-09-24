@@ -137,11 +137,9 @@ function ensureInternalListeners(): Promise<void> {
 /**
  * Configure custom items to display in the native text selection floating menu.
  *
- * Supports two signatures:
- * 1. Array of items with optional config object:
  * ```ts
- * await setMenuItems(
- *   [
+ * await setMenuItems({
+ *   items: [
  *     {
  *       label: 'Ask in New Session',
  *       onClick: ({ text }) => {
@@ -149,53 +147,21 @@ function ensureInternalListeners(): Promise<void> {
  *       },
  *     },
  *   ],
- *   {
- *     removeNative: false,
- *   }
- * );
- * ```
- *
- * 2. Single options object:
- * ```ts
- * await setMenuItems({
- *   items: [
- *     {
- *       label: 'Ask in New Session',
- *       onClick: ({ text }) => { ... },
- *     },
- *   ],
  *   removeNative: false,
  * });
  * ```
  */
-export function setMenuItems(
-  items: SelectionMenuItemInput[],
-  config?: SetMenuItemsConfig
-): Promise<void>;
-export function setMenuItems(
-  options: SetMenuItemsOptions
-): Promise<void>;
 export async function setMenuItems(
-  firstArg: SelectionMenuItemInput[] | SetMenuItemsOptions,
-  secondArg?: SetMenuItemsConfig
+  options: SetMenuItemsOptions
 ): Promise<void> {
   await ensureInternalListeners();
 
-  let rawItems: SelectionMenuItemInput[];
-  let config: SetMenuItemsConfig;
+  const rawItems = options.items || [];
 
-  if (Array.isArray(firstArg)) {
-    rawItems = firstArg;
-    config = secondArg || {};
-  } else {
-    rawItems = firstArg.items || [];
-    config = firstArg;
-  }
-
-  const removeNative = !!config.removeNative;
-  const autoClear = config.autoClear ?? true;
+  const removeNative = !!options.removeNative;
+  const autoClear = options.autoClear ?? true;
   lastAutoClear = autoClear;
-  activeDismissCallback = config.onDismiss || null;
+  activeDismissCallback = options.onDismiss || null;
 
   // Clear previous callback map and register new item callbacks
   itemCallbacks.clear();

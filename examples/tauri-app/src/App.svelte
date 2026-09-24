@@ -58,8 +58,8 @@
   // 场景 A：长按或划词自动注入专享菜单，直接使用 onClick 回调，关闭自动清理
   async function handleCardLongPressOrContext(e) {
     try {
-      await setMenuItems(
-        [
+      await setMenuItems({
+        items: [
           {
             label: 'Ask in New Session',
             onClick: ({ text }) => {
@@ -79,14 +79,12 @@
             },
           },
         ],
-        {
-          removeNative: removeNativeEnabled,
-          autoClear: true,
-          onDismiss: () => {
-            addLog(`🔒 [onDismiss] 专享菜单已关闭`);
-          },
+        removeNative: removeNativeEnabled,
+        autoClear: true,
+        onDismiss: () => {
+          addLog(`🔒 [onDismiss] 专享菜单已关闭`);
         },
-      );
+      });
       addLog('✨ 已注入专享菜单 (带 onClick 回调)');
       checkCurrentItems();
     } catch (err) {

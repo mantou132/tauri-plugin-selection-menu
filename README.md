@@ -114,8 +114,8 @@ No need for manual IDs or separate event listeners. Pass an `onClick` callback d
 ```typescript
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
-await setMenuItems(
-  [
+await setMenuItems({
+  items: [
     {
       label: 'Ask in New Session',
       onClick: ({ text }) => {
@@ -129,14 +129,12 @@ await setMenuItems(
       },
     },
   ],
-  {
-    removeNative: false, // Set to true to hide native Copy, Share, etc.
-    autoClear: true,     // Automatically reset when menu closes (default: true)
-    onDismiss: () => {
-      console.log('Selection menu closed');
-    },
+  removeNative: false, // Set to true to hide native Copy, Share, etc.
+  autoClear: true,     // Automatically reset when menu closes (default: true)
+  onDismiss: () => {
+    console.log('Selection menu closed');
   },
-);
+});
 ```
 
 ---
@@ -156,8 +154,8 @@ document.addEventListener('selectionchange', () => {
   const targetCard = document.querySelector('.my-ai-card');
   if (targetCard && targetCard.contains(selection.anchorNode)) {
     // Inject contextual items only for this card
-    setMenuItems(
-      [
+    setMenuItems({
+      items: [
         {
           label: 'Ask AI',
           onClick: ({ text }) => askAI(text),
@@ -167,11 +165,9 @@ document.addEventListener('selectionchange', () => {
           onClick: ({ text }) => quoteSelection(text),
         },
       ],
-      {
-        removeNative: false, // Keep native Copy, Share, etc.
-        autoClear: true,     // Automatically clean up when dismissed
-      },
-    );
+      removeNative: false, // Keep native Copy, Share, etc.
+      autoClear: true,     // Automatically clean up when dismissed
+    });
   }
 });
 ```
@@ -256,20 +252,28 @@ console.log('Current items:', currentItems);
 
 ### Methods
 
-#### `setMenuItems(items, config?)` / `setMenuItems(options)`
-Configures custom items to display in the native text selection floating menu. Supports two call signatures:
+#### `setMenuItems(options)`
+Configures custom items to display in the native text selection floating menu.
 
 ```typescript
-// 1. Array + optional config (Recommended)
-function setMenuItems(
-  items: SelectionMenuItemInput[],
-  config?: SetMenuItemsConfig
-): Promise<void>;
-
-// 2. Single options object
 function setMenuItems(
   options: SetMenuItemsOptions
 ): Promise<void>;
+```
+
+```typescript
+// Set custom items with options
+await setMenuItems({
+  items: [
+    { id: 'translate', label: 'Translate' },
+    { id: 'explain', label: 'Explain with AI' },
+  ],
+  removeNative: false,
+  autoClear: true,
+  onDismiss: () => {
+    console.log('Selection menu closed');
+  },
+});
 ```
 
 #### `getMenuItems()`

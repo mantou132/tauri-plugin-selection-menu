@@ -115,8 +115,8 @@ pub fn run() {
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
 // 在划词或卡片选区时注入自定义菜单
-await setMenuItems(
-  [
+await setMenuItems({
+  items: [
     {
       label: 'Ask in New Session',
       onClick: ({ text }) => {
@@ -130,14 +130,12 @@ await setMenuItems(
       },
     },
   ],
-  {
-    removeNative: false, // 设为 true 可隐藏系统默认的复制、分享等
-    autoClear: true,     // 菜单关闭时自动清理（默认 true）
-    onDismiss: () => {
-      console.log('划词菜单已关闭');
-    },
+  removeNative: false, // 设为 true 可隐藏系统默认的复制、分享等
+  autoClear: true,     // 菜单关闭时自动清理（默认 true）
+  onDismiss: () => {
+    console.log('划词菜单已关闭');
   },
-);
+});
 ```
 
 ---
@@ -156,8 +154,8 @@ document.addEventListener('selectionchange', () => {
   const targetCard = document.querySelector('.ai-message-card');
   if (targetCard && targetCard.contains(selection.anchorNode)) {
     // 仅在当前卡片选中文本时注入 AI 快捷操作
-    setMenuItems(
-      [
+    setMenuItems({
+      items: [
         {
           label: '发往新会话',
           onClick: ({ text }) => openNewSession(text),
@@ -171,11 +169,9 @@ document.addEventListener('selectionchange', () => {
           onClick: ({ text }) => quoteText(text),
         },
       ],
-      {
-        removeNative: false,
-        autoClear: true,
-      },
-    );
+      removeNative: false,
+      autoClear: true,
+    });
   }
 });
 ```
@@ -259,20 +255,28 @@ console.log('当前激活菜单:', current);
 
 ### 核心方法
 
-#### `setMenuItems(items, config?)` / `setMenuItems(options)`
-配置划词浮层菜单中的自定义操作项。支持两种调用签名：
+#### `setMenuItems(options)`
+配置划词浮层菜单中的自定义操作项。
 
 ```typescript
-// 1. 数组 + 可选配置（推荐）
-function setMenuItems(
-  items: SelectionMenuItemInput[],
-  config?: SetMenuItemsConfig
-): Promise<void>;
-
-// 2. 单个选项对象
 function setMenuItems(
   options: SetMenuItemsOptions
 ): Promise<void>;
+```
+
+```typescript
+// 通过选项对象配置菜单
+await setMenuItems({
+  items: [
+    { id: 'translate', label: '即时翻译' },
+    { id: 'explain', label: 'AI 解释' },
+  ],
+  removeNative: false,
+  autoClear: true,
+  onDismiss: () => {
+    console.log('划词菜单已关闭');
+  },
+});
 ```
 
 #### `getMenuItems()`
