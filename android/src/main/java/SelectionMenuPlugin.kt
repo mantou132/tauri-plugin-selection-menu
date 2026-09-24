@@ -167,7 +167,7 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
         scheduleDismissCheck(if (wasItemClicked) 100L else 350L)
     }
 
-    private fun scheduleDismissCheck(delayMs: Long) {
+    private fun scheduleDismissCheck(delayMs: Long, retryCount: Int = 0) {
         cancelDismissCheck()
         val runnable = Runnable {
             pendingDismissRunnable = null
@@ -186,10 +186,10 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
                 wv.evaluateJavascript("window.getSelection() ? !window.getSelection().isCollapsed : false") { hasSelectionRaw ->
                     val hasSelection = hasSelectionRaw?.trim() == "true"
                     if (activeActionMode == null) {
-                        if (!hasSelection) {
+                        if (!hasSelection || retryCount >= 3) {
                             performDismissCleanup()
                         } else {
-                            scheduleDismissCheck(500L)
+                            scheduleDismissCheck(500L, retryCount + 1)
                         }
                     }
                 }
