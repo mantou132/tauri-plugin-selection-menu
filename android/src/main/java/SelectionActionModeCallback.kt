@@ -42,6 +42,7 @@ class SelectionActionModeCallback(
         plugin.handleActionModeStarted(mode)
         val result = wrapped.onPrepareActionMode(mode, menu)
         val items = plugin.currentItems
+        menu.removeGroup(CUSTOM_GROUP_ID)
         if (items.isNotEmpty()) {
             if (plugin.removeNative) {
                 val toRemove = mutableListOf<Int>()
@@ -55,9 +56,7 @@ class SelectionActionModeCallback(
                     menu.removeItem(id)
                 }
             }
-            if (menu.findItem(CUSTOM_ITEM_ID_OFFSET) == null) {
-                populateCustomItems(menu, items)
-            }
+            populateCustomItems(menu, items)
             return true
         }
         return result

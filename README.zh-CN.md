@@ -5,76 +5,43 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-专为 Tauri v2 打造的高性能移动端插件，用于在 **iOS** 与 **Android** 系统的原生划词选择浮层菜单（胶囊工具栏 / Contextual Menu）中注入自定义操作项。
+专为 Tauri v2 打造的移动端原生划词菜单插件，支持在 **iOS** 与 **Android** 系统的原生文本选中气泡（胶囊工具栏 / Context Menu）中注入自定义操作项。
 
-适用于 AI 问答应用、笔记软件、电子书阅读器及翻译工具，直接在原生选中文本胶囊菜单中添加 **“发往新会话”**、**“笔记搜索”**、**“AI 解释”** 等功能项。
-
----
-
-## ✨ 核心特性
-
-- 📱 **纯正原生视觉与体验**：
-  - **iOS**：通过官方 `UIMenuBuilder` 与 `UIAction` 注入系统 Edit Menu。
-  - **Android**：基于原生 `ActionMode.TYPE_FLOATING`（悬浮工具栏）深度集成。
-  - 完美继承系统的胶囊圆角、字体、触觉反馈、分页动画与无障碍辅助，绝无网页模拟层（Web Overlay）的卡顿与位移。
-- 🔄 **完整支持水滴手柄拖动选区**：
-  - 完美适配 Android Chromium 与 iOS WebKit 在拖动手柄时销毁并重建 Action Mode 的瞬态生命周期，拖动手柄扩展/缩小选区时自定义菜单项平滑保持，不会被系统原生菜单覆盖。
-- 🧹 **自动清理机制 (`autoClear: true`)**：
-  - 胶囊菜单关闭时（点击空白区域、滚动页面、点击复制或点击自定义项后）自动恢复系统默认菜单，保证页面其他未配置区域体验纯净。
-- 🚫 **可选择隐藏系统原生操作 (`removeNative: true`)**：
-  - 支持仅展示自定义菜单项，隐藏 Copy、Look Up、Share、Translate 等系统默认项目。
-- 🎯 **可靠的选中文本提取**：
-  - 在菜单项点击的原生事件触发时，第一时间从 WebView DOM 异步提取选区内容，避免因焦点转移或选区先清空导致的文本读取丢失。
-- ⚡ **完备的事件体系**：
-  - `onMenuItemClick`：自定义菜单项点击时接收 `{ id, text }`。
-  - `onMenuDismiss`：原生浮层关闭时接收通知。
+在原生选中菜单中直接加入 **“问 AI”**、**“引用文本”**、**“笔记搜索”** 等功能，原生质感，绝非网页模拟层。
 
 ---
 
 ## 📦 支持平台
 
-| 平台 | 最低版本要求 | 核心实现方案 |
+| 平台 | 最低版本要求 | 底层实现方式 |
 | :--- | :--- | :--- |
-| **iOS** | iOS 14.0+ (iOS 16+ 深度优化) | `UIMenuBuilder` + `WKUIDelegateProxy` |
-| **Android** | API 23+ (Android 6.0+) | `ActionMode.TYPE_FLOATING` + `SelectionActionModeLayout` |
-| **Desktop** | macOS / Windows / Linux | 回退状态管理 |
+| **iOS** | iOS 14.0+ | `UIMenuBuilder` + 官方标准编辑菜单 |
+| **Android** | Android 6.0+ (API 23+) | `ActionMode.TYPE_FLOATING` |
+| **Desktop** | macOS / Windows / Linux | 状态安全回退（无报错） |
 
 ---
 
-## 🚀 安装步骤
+## 🚀 安装配置
 
 ### 1. 安装前端 NPM 包
 
 ```bash
-# 使用 pnpm
 pnpm add tauri-plugin-selection-menu-api
-
-# 使用 npm
-npm install tauri-plugin-selection-menu-api
-
-# 使用 yarn
-yarn add tauri-plugin-selection-menu-api
+# 或 npm install tauri-plugin-selection-menu-api
 ```
 
 ### 2. 添加 Rust 依赖
 
-在你的 `src-tauri/Cargo.toml` 中添加：
+在 `src-tauri/Cargo.toml` 中添加：
 
 ```toml
 [dependencies]
 tauri-plugin-selection-menu = "0.1"
 ```
 
-或使用 Git 地址引用：
-
-```toml
-[dependencies]
-tauri-plugin-selection-menu = { git = "https://github.com/mantou132/tauri-plugin-selection-menu" }
-```
-
 ### 3. 在 Rust 中注册插件
 
-在 `src-tauri/src/lib.rs`（或 `main.rs`）中注册：
+在 `src-tauri/src/lib.rs`（或 `main.rs`）中：
 
 ```rust
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -82,20 +49,16 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_selection_menu::init())
         .run(tauri::generate_context!())
-        .expect("运行 Tauri 应用时出错");
+        .expect("运行 Tauri 应用出错");
 }
 ```
 
-### 4. 配置权限 Capabilities
+### 4. 配置权限 Permissions
 
-在 Tauri 的权限配置文件中（例如 `src-tauri/capabilities/default.json`）：
+在 `src-tauri/capabilities/default.json` 中加入权限：
 
 ```json
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "主窗口权限配置",
-  "windows": ["main"],
   "permissions": [
     "core:default",
     "selection-menu:default"
@@ -105,44 +68,38 @@ pub fn run() {
 
 ---
 
-## 📖 使用指南
+## 💡 快速上手
 
-### 1. 快捷用法：直接绑定 `onClick` 回调（推荐）
-
-无需繁琐的 ID 匹配与事件解绑，直接为每个菜单项传入 `onClick` 回调，选中文本 `{ text }` 即可直接获取：
+直接配置菜单项与 `onClick` 回调，选中文本 `{ text }` 直接获取：
 
 ```typescript
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
-// 在划词或卡片选区时注入自定义菜单
 await setMenuItems({
   items: [
     {
-      label: 'Ask in New Session',
+      label: '问 AI',
       onClick: ({ text }) => {
-        openNewSession(text);
+        console.log('选中文本:', text);
       },
     },
     {
-      label: 'Search in Notes',
+      label: '搜索笔记',
       onClick: ({ text }) => {
-        searchNotes(text);
+        searchInNotes(text);
       },
     },
   ],
-  removeNative: false, // 设为 true 可隐藏系统默认的复制、分享等
-  autoClear: true,     // 菜单关闭时自动清理（默认 true）
-  onDismiss: () => {
-    console.log('划词菜单已关闭');
-  },
 });
 ```
 
 ---
 
-### 2. 局部卡片划词菜单（自动清理推荐用法）
+## 🎯 常用场景
 
-在特定卡片或文本区域选中时动态配置自定义菜单，菜单关闭后自动恢复默认：
+### 1. 局部卡片划词（自动清理）
+
+在特定卡片或区域选中文本时动态设置。配合 `autoClear: true`（默认），菜单关闭后自动恢复系统默认：
 
 ```typescript
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
@@ -151,215 +108,93 @@ document.addEventListener('selectionchange', () => {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
 
-  const targetCard = document.querySelector('.ai-message-card');
+  const targetCard = document.querySelector('.ai-card');
   if (targetCard && targetCard.contains(selection.anchorNode)) {
-    // 仅在当前卡片选中文本时注入 AI 快捷操作
     setMenuItems({
       items: [
-        {
-          label: '发往新会话',
-          onClick: ({ text }) => openNewSession(text),
-        },
-        {
-          label: '搜索笔记',
-          onClick: ({ text }) => searchNotes(text),
-        },
-        {
-          label: '引用文本',
-          onClick: ({ text }) => quoteText(text),
-        },
+        { label: '问 AI', onClick: ({ text }) => askAI(text) },
+        { label: '引用', onClick: ({ text }) => quoteText(text) },
       ],
-      removeNative: false,
-      autoClear: true,
+      autoClear: true, // 菜单关闭时自动清理，恢复系统默认
     });
   }
 });
 ```
 
----
+### 2. 隐藏系统默认操作（`removeNative: true`）
 
-### 3. 全局事件监听模式（可选）
-
-如果你喜欢使用中心化全局事件分发，也可以为菜单项指定 `id` 并通过 `onMenuItemClick` 统一监听：
+仅展示自定义按钮，隐藏系统默认项（复制、查询、分享等）：
 
 ```typescript
-import { setMenuItems, onMenuItemClick, onMenuDismiss } from 'tauri-plugin-selection-menu-api';
+import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
-// 全局监听点击
-const unlistenClick = await onMenuItemClick((event) => {
-  console.log(`点击菜单 ID: ${event.id}, 选中文本: "${event.text}"`);
-});
-
-// 全局监听关闭
-const unlistenDismiss = await onMenuDismiss(() => {
-  console.log('划词菜单已关闭');
+await setMenuItems({
+  items: [
+    { label: '发往会话', onClick: ({ text }) => send(text) },
+    { label: '纯文本复制', onClick: ({ text }) => copy(text) },
+  ],
+  removeNative: true, // 隐藏原生复制/分享等项
 });
 ```
-
----
 
 ### 3. 全局常驻菜单
 
-如果希望在整个 App 选中文本时始终显示固定的自定义操作：
+在整个 App 内所有选中文本的位置都显示固定操作：
 
 ```typescript
 import { setMenuItems } from 'tauri-plugin-selection-menu-api';
 
 await setMenuItems({
   items: [
-    { id: 'translate', label: '即时翻译' },
-    { id: 'explain', label: 'AI 解释' },
+    { label: '即时翻译', onClick: ({ text }) => translate(text) },
+    { label: 'AI 解释', onClick: ({ text }) => explain(text) },
   ],
-  removeNative: false,
-  autoClear: false, // 每次划词都持续生效，不自动清理
+  autoClear: false, // 持续生效，不自动清理
 });
 ```
 
----
-
-### 4. 隐藏系统默认项 (`removeNative: true`)
-
-在沉浸式阅读或安全要求较高的界面中，仅展示自定义菜单：
+### 4. 手动清空
 
 ```typescript
-import { setMenuItems } from 'tauri-plugin-selection-menu-api';
+import { clearMenuItems } from 'tauri-plugin-selection-menu-api';
 
-await setMenuItems({
-  items: [
-    { id: 'safe-export', label: '安全导出' },
-    { id: 'clean-copy', label: '纯文本复制' },
-  ],
-  removeNative: true, // 移除系统的 Copy、Lookup、Share 等
-  autoClear: true,
-});
-```
-
----
-
-### 5. 手动清理与状态查询
-
-```typescript
-import { clearMenuItems, getMenuItems } from 'tauri-plugin-selection-menu-api';
-
-// 立即清空所有自定义菜单项
 await clearMenuItems();
-
-// 查询当前配置的菜单项
-const current = await getMenuItems();
-console.log('当前激活菜单:', current);
 ```
 
 ---
 
-## 📚 API 参考
+## 📖 API 参考
 
-### 核心方法
+### `setMenuItems(options)`
 
-#### `setMenuItems(options)`
-配置划词浮层菜单中的自定义操作项。
+配置原生划词菜单项。
 
-```typescript
-function setMenuItems(
-  options: SetMenuItemsOptions
-): Promise<void>;
-```
-
-```typescript
-// 通过选项对象配置菜单
-await setMenuItems({
-  items: [
-    { id: 'translate', label: '即时翻译' },
-    { id: 'explain', label: 'AI 解释' },
-  ],
-  removeNative: false,
-  autoClear: true,
-  onDismiss: () => {
-    console.log('划词菜单已关闭');
-  },
-});
-```
-
-#### `getMenuItems()`
-获取当前已配置的自定义菜单项列表。
-
-```typescript
-function getMenuItems(): Promise<SelectionMenuItem[]>;
-```
-
-#### `clearMenuItems()`
-立即清除所有自定义菜单项。
-
-```typescript
-function clearMenuItems(): Promise<void>;
-```
-
-#### `onMenuItemClick(handler)`
-全局监听自定义菜单项的点击事件（可选）。
-
-```typescript
-function onMenuItemClick(
-  handler: (event: SelectionMenuItemClickEvent) => void | Promise<void>
-): Promise<PluginListener>;
-```
-
-#### `onMenuDismiss(handler)`
-全局监听原生浮层菜单关闭/消失事件。
-
-```typescript
-function onMenuDismiss(
-  handler: () => void | Promise<void>
-): Promise<PluginListener>;
-```
-
----
-
-### 类型定义
+| 参数 | 类型 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `items` | `SelectionMenuItemInput[]` | **必填** | 菜单项列表。 |
+| `removeNative` | `boolean` | `false` | 是否隐藏系统默认操作（复制、分享等）。 |
+| `autoClear` | `boolean` | `true` | 菜单关闭或点击后是否自动重置回系统默认。 |
+| `onDismiss` | `() => void` | `undefined` | 划词菜单关闭时的回调函数。 |
 
 #### `SelectionMenuItemInput`
+
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
-| `label` | `string` | 按钮显示的文案（必填）。 |
-| `id` | `string?` | 菜单项唯一标识符（可选，不传时系统自动生成）。 |
-| `onClick` | `(event: { id: string, text: string }) => void \| Promise<void>` | 可选点击回调函数，直接接收选中的文本 `{ text }`。 |
+| `label` | `string` | 菜单按钮上展示的文案（必填）。 |
+| `id` | `string?` | 菜单项唯一标识（可选，不传会自动生成）。 |
+| `onClick` | `(event: { id: string, text: string }) => void` | 点击回调，参数直接包含选中文本 `{ text }`。 |
 
-#### `SetMenuItemsConfig`
-| 字段 | 类型 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- |
-| `removeNative` | `boolean` | `false` | 是否替换/移除系统默认操作（复制、查询、分享等）。 |
-| `autoClear` | `boolean` | `true` | 是否在菜单关闭或点击后自动清空自定义菜单项。 |
-| `onDismiss` | `() => void \| Promise<void>` | `undefined` | 划词胶囊菜单关闭时的可选回调。 |
+### 辅助方法
 
-#### `SetMenuItemsOptions`
-| 字段 | 类型 | 说明 |
+| 方法 | 签名 | 说明 |
 | :--- | :--- | :--- |
-| `items` | `SelectionMenuItemInput[]` | 自定义菜单项列表。 |
-| 继承 | `SetMenuItemsConfig` | 包含 `removeNative`, `autoClear`, `onDismiss`。 |
-
-#### `SelectionMenuItemClickEvent`
-| 字段 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| `id` | `string` | 被点击的菜单项 ID。 |
-| `text` | `string` | 点击时选区中的文本内容。 |
-
----
-
-## 🛠️ 底层架构实现
-
-### iOS 架构
-- **方法混淆（Method Swizzling）**：同时 Hook `WKWebView` 与 `UIViewController` 的 `buildMenu(with:)`，完美兼容 iOS 14 至 iOS 18+（兼容 Chromium 团队在 iOS 18.2 调整的 edit menu 派发路径）。
-- **完全符合 App Store 规范**：使用公开公开的 `UIMenuBuilder` 与 `UIAction` API，通过在 `.standardEdit` 上使用 `insertSibling` / `replaceChildren` 修改菜单，杜绝使用任何私有 API。
-- **精准的关闭检测**：通过 `WKUIDelegateProxy` 透明代理 WebView 的 UIDelegate，在 iOS 16.4+ 拦截 `webView(_:willDismissEditMenuWithAnimator:)`，并在低版本监听 `UIMenuController.didHideMenuNotification`，实现可靠的关闭感知与自动清理。
-
-### Android 架构
-- **零侵入式无缝装配**：插件在 `load(webView)` 生命周期内将 Tauri 的 WebView 包装进轻量级 `SelectionActionModeLayout`（继承自 `FrameLayout`），完全无需开发者继承或修改 `MainActivity`。
-- **浮动工具栏拦截**：重写 `startActionModeForChild` 捕获 `ActionMode.TYPE_FLOATING`，注入 `SelectionActionModeCallback` 自定义菜单项。
-- **拖动手柄防闪烁会话**：内置防抖会话管理器。当 Chromium 在拖动光标手柄时先触发 `onDestroyActionMode` 再重建时，会自动取消销毁延迟，确保手柄拖动过程中自定义菜单项不丢失。
-- **安全的异步文本读取**：点击时先从 WebView 异步获取选中文本，待文本准备就绪后再完成 `actionMode.finish()`，防止选区提早坍缩导致获取空字符串。
+| `clearMenuItems` | `() => Promise<void>` | 立即清空所有自定义菜单项。 |
+| `getMenuItems` | `() => Promise<SelectionMenuItem[]>` | 获取当前已配置的自定义菜单项。 |
+| `onMenuItemClick` | `(handler) => Promise<PluginListener>` | 全局点击监听（除 `onClick` 外的备选方式）。 |
+| `onMenuDismiss` | `(handler) => Promise<PluginListener>` | 全局关闭监听（除 `onDismiss` 外的备选方式）。 |
 
 ---
 
 ## 📄 开源许可
 
-本项目采用双重开源协议授权：
-- **MIT License** ([LICENSE-MIT](LICENSE-MIT) 或 [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
-- **Apache License, Version 2.0** ([LICENSE-APACHE](LICENSE-APACHE) 或 [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+基于 MIT 或 Apache-2.0 协议双重授权。
