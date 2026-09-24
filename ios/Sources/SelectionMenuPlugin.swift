@@ -6,7 +6,6 @@ import WebKit
 struct SelectionMenuItem: Codable {
     let id: String
     let label: String
-    let icon: String?
 }
 
 struct SetMenuItemsPayload: Codable {

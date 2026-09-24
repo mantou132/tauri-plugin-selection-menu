@@ -320,7 +320,6 @@ function onMenuDismiss(
 | :--- | :--- | :--- |
 | `label` | `string` | 按钮显示的文案（必填）。 |
 | `id` | `string?` | 菜单项唯一标识符（可选，不传时系统自动生成）。 |
-| `icon` | `string?` | 可选图标标识符。 |
 | `onClick` | `(event: { id: string, text: string }) => void \| Promise<void>` | 可选点击回调函数，直接接收选中的文本 `{ text }`。 |
 
 #### `SetMenuItemsConfig`

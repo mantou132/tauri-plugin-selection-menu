@@ -6,7 +6,6 @@ import app.tauri.annotation.InvokeArg
 class SelectionMenuItem {
     var id: String = ""
     var label: String = ""
-    var icon: String? = null
 }
 
 @InvokeArg

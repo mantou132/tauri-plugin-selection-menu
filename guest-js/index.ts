@@ -9,10 +9,6 @@ export interface SelectionMenuItem {
    * Display label shown in the selection menu.
    */
   label: string;
-  /**
-   * Optional icon name or resource identifier.
-   */
-  icon?: string;
 }
 
 export interface SelectionMenuItemClickEvent {
@@ -40,10 +36,6 @@ export interface SelectionMenuItemInput {
    * Display label shown in the selection menu.
    */
   label: string;
-  /**
-   * Optional icon name or resource identifier.
-   */
-  icon?: string;
   /**
    * Callback invoked when this menu item is tapped in the native selection menu.
    */
@@ -174,7 +166,6 @@ export async function setMenuItems(
     return {
       id,
       label: item.label,
-      icon: item.icon,
     };
   });
 

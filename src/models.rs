@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct SelectionMenuItem {
     pub id: String,
     pub label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
 }
 
 fn default_auto_clear() -> bool {

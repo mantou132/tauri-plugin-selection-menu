@@ -317,7 +317,6 @@ function onMenuDismiss(
 | :--- | :--- | :--- |
 | `label` | `string` | Label text displayed on the menu button (required). |
 | `id` | `string?` | Optional unique identifier. If omitted, one is generated automatically. |
-| `icon` | `string?` | Optional icon identifier. |
 | `onClick` | `(event: { id: string, text: string }) => void \| Promise<void>` | Optional click callback invoked with the selected text `{ text }`. |
 
 #### `SetMenuItemsConfig`
