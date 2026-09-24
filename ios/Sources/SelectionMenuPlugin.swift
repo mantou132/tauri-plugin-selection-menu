@@ -8,28 +8,21 @@ struct SelectionMenuItem: Codable {
     let label: String
 }
 
-struct SetMenuItemsPayload: Codable {
-    let items: [SelectionMenuItem]?
-    let removeNative: Bool?
-    let autoClear: Bool?
-}
-
 struct SetMenuItemsArgs: Codable {
     let items: [SelectionMenuItem]?
     let removeNative: Bool?
     let autoClear: Bool?
-    let payload: SetMenuItemsPayload?
 
     var resolvedItems: [SelectionMenuItem] {
-        return items ?? payload?.items ?? []
+        return items ?? []
     }
 
     var resolvedRemoveNative: Bool {
-        return removeNative ?? payload?.removeNative ?? false
+        return removeNative ?? false
     }
 
     var resolvedAutoClear: Bool {
-        return autoClear ?? payload?.autoClear ?? true
+        return autoClear ?? true
     }
 }
 

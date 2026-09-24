@@ -175,10 +175,7 @@ export async function setMenuItems(
     autoClear,
   };
 
-  await invoke('plugin:selection-menu|set_menu_items', {
-    ...payload,
-    payload,
-  });
+  await invoke('plugin:selection-menu|set_menu_items', { payload });
 }
 
 /**

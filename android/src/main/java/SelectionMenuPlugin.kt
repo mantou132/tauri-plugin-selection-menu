@@ -220,7 +220,6 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
                         put("text", text)
                     }
                     trigger("click", payload)
-                    trigger("menuItemClick", payload)
                     if (autoClear) {
                         currentItems = emptyList()
                     }
@@ -237,7 +236,6 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
                 put("text", "")
             }
             trigger("click", payload)
-            trigger("menuItemClick", payload)
             if (autoClear) {
                 currentItems = emptyList()
             }
@@ -251,15 +249,10 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     private fun cleanJsResult(raw: String?): String {
         if (raw == null || raw == "null") return ""
-        var str = raw.trim()
-        if (str.startsWith("\"") && str.endsWith("\"") && str.length >= 2) {
-            str = str.substring(1, str.length - 1)
-            str = str.replace("\\\"", "\"")
-                .replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\t", "\t")
-                .replace("\\\\", "\\")
+        return try {
+            org.json.JSONTokener(raw).nextValue() as? String ?: ""
+        } catch (e: Exception) {
+            raw
         }
-        return str
     }
 }

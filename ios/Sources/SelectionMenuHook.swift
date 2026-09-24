@@ -72,7 +72,6 @@ class SelectionMenuContext: NSObject {
                     let text = result as? String ?? ""
                     let payload = MenuItemClickPayload(id: item.id, text: text)
                     try? self.plugin?.trigger("click", data: payload)
-                    try? self.plugin?.trigger("menuItemClick", data: payload)
                     if self.autoClear {
                         self.clear()
                     }
