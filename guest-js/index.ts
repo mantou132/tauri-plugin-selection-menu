@@ -66,14 +66,10 @@ export interface SetMenuItemsOptions extends SetMenuItemsConfig {
   items: SelectionMenuItemInput[];
 }
 
-let idCounter = 0;
-function generateItemId(label: string): string {
-  idCounter = (idCounter + 1) % 1000000;
-  const safeLabel = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .slice(0, 16);
-  return `${safeLabel || 'item'}_${Date.now().toString(36)}_${idCounter}`;
+// Deterministic so that a menu UIKit built from an earlier setMenuItems call
+// (it is not always rebuilt in time) still maps to the current callbacks.
+function generateItemId(label: string, index: number): string {
+  return `item_${index}_${label}`;
 }
 
 const itemCallbacks = new Map<string, MenuItemClickHandler>();
@@ -104,16 +100,18 @@ function ensureInternalListeners(): Promise<void> {
           'selection-menu',
           'dismiss',
           () => {
-            if (activeDismissCallback) {
+            const callback = activeDismissCallback;
+            if (lastAutoClear) {
+              // Keep itemCallbacks: a menu that is still on screen may fire a
+              // click after dismiss. The next setMenuItems replaces them.
+              activeDismissCallback = null;
+            }
+            if (callback) {
               try {
-                activeDismissCallback();
+                callback();
               } catch (e) {
                 console.error('[selection-menu] Error in onDismiss handler:', e);
               }
-            }
-            if (lastAutoClear) {
-              itemCallbacks.clear();
-              activeDismissCallback = null;
             }
           }
         );
@@ -158,8 +156,8 @@ export async function setMenuItems(
   // Clear previous callback map and register new item callbacks
   itemCallbacks.clear();
 
-  const serializedItems: SelectionMenuItem[] = rawItems.map((item) => {
-    const id = item.id || generateItemId(item.label);
+  const serializedItems: SelectionMenuItem[] = rawItems.map((item, index) => {
+    const id = item.id || generateItemId(item.label, index);
     if (item.onClick) {
       itemCallbacks.set(id, item.onClick);
     }
@@ -168,6 +166,7 @@ export async function setMenuItems(
       label: item.label,
     };
   });
+
 
   const payload = {
     items: serializedItems,

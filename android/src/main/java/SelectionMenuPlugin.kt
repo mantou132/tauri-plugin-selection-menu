@@ -39,6 +39,10 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     private var pendingDismissRunnable: Runnable? = null
     private var wasItemClicked: Boolean = false
+    private var clickPending = false
+    private var dismissRevision = 0
+    private var configurationRevision = 0
+    private var sessionActive = false
 
     override fun load(webView: WebView) {
         this.webView = webView
@@ -89,18 +93,19 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
     fun set_menu_items(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(SetMenuItemsArgs::class.java)
-            this.currentItems = args.resolvedItems
-            this.removeNative = args.resolvedRemoveNative
-            this.autoClear = args.resolvedAutoClear
-            cancelDismissCheck()
             activity.runOnUiThread {
+                configurationRevision++
+                currentItems = args.resolvedItems
+                removeNative = args.resolvedRemoveNative
+                autoClear = args.resolvedAutoClear
+                cancelDismissCheck()
                 try {
                     activeActionMode?.invalidate()
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to invalidate ActionMode", e)
                 }
+                invoke.resolve()
             }
-            invoke.resolve()
         } catch (e: Exception) {
             invoke.reject(e.message, null, e, null)
         }
@@ -113,7 +118,7 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun get_menu_items(invoke: Invoke) {
-        invoke.resolveObject(this.currentItems)
+        activity.runOnUiThread { invoke.resolveObject(currentItems) }
     }
 
     @Command
@@ -123,15 +128,17 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun clear_menu_items(invoke: Invoke) {
-        this.currentItems = emptyList()
         activity.runOnUiThread {
+            configurationRevision++
+            cancelDismissCheck()
+            currentItems = emptyList()
             try {
                 activeActionMode?.invalidate()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to invalidate ActionMode", e)
             }
+            invoke.resolve()
         }
-        invoke.resolve()
     }
 
     @Command
@@ -145,15 +152,19 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
     fun handleActionModeStarted(mode: ActionMode) {
         cancelDismissCheck()
+        // A prepare after a native action (e.g. Select All) continues selection.
+        // Only a custom click still waiting for its text must survive a prepare.
+        wasItemClicked = clickPending
         activeActionMode = mode
-        wasItemClicked = false
+        sessionActive = true
     }
 
-    fun handleNativeItemClicked() {
-        wasItemClicked = true
+    fun handleNativeItemClicked(itemId: Int) {
+        wasItemClicked = itemId != android.R.id.selectAll
     }
 
     fun cancelDismissCheck() {
+        dismissRevision++
         pendingDismissRunnable?.let {
             mainHandler.removeCallbacks(it)
             pendingDismissRunnable = null
@@ -161,15 +172,16 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     fun handleActionModeDestroyed(mode: ActionMode) {
-        if (activeActionMode === mode) {
-            activeActionMode = null
-        }
+        if (activeActionMode !== mode) return
+        activeActionMode = null
         scheduleDismissCheck(if (wasItemClicked) 100L else 350L)
     }
 
-    private fun scheduleDismissCheck(delayMs: Long, retryCount: Int = 0) {
+    private fun scheduleDismissCheck(delayMs: Long, wasCollapsed: Boolean = false) {
         cancelDismissCheck()
+        val revision = dismissRevision
         val runnable = Runnable {
+            if (revision != dismissRevision || !sessionActive || clickPending) return@Runnable
             pendingDismissRunnable = null
             if (activeActionMode != null) {
                 return@Runnable
@@ -183,14 +195,21 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
 
             val wv = webView
             if (wv != null) {
-                wv.evaluateJavascript("window.getSelection() ? !window.getSelection().isCollapsed : false") { hasSelectionRaw ->
-                    val hasSelection = hasSelectionRaw?.trim() == "true"
-                    if (activeActionMode == null) {
-                        if (!hasSelection || retryCount >= 3) {
-                            performDismissCleanup()
-                        } else {
-                            scheduleDismissCheck(500L, retryCount + 1)
-                        }
+                wv.evaluateJavascript("""
+                    (() => {
+                        const el = document.activeElement;
+                        if (el && typeof el.selectionStart === 'number' && el.selectionStart !== el.selectionEnd) return false;
+                        const selection = window.getSelection();
+                        return !selection || selection.isCollapsed;
+                    })()
+                """.trimIndent()) { result ->
+                    if (revision != dismissRevision || activeActionMode != null || !sessionActive) return@evaluateJavascript
+                    val collapsed = result?.trim() == "true"
+                    if (collapsed && wasCollapsed) {
+                        performDismissCleanup()
+                    } else {
+                        // A long handle drag must not time out and clear the items.
+                        scheduleDismissCheck(350L, collapsed)
                     }
                 }
             } else {
@@ -202,6 +221,9 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private fun performDismissCleanup() {
+        if (!sessionActive) return
+        sessionActive = false
+        cancelDismissCheck()
         if (autoClear) {
             currentItems = emptyList()
         }
@@ -209,41 +231,38 @@ class SelectionMenuPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     fun handleItemClick(item: SelectionMenuItem, mode: ActionMode?) {
+        if (clickPending) return
+        clickPending = true
         wasItemClicked = true
-        val wv = webView
-        if (wv != null) {
-            activity.runOnUiThread {
-                wv.evaluateJavascript("window.getSelection() ? window.getSelection().toString() : ''") { rawResult ->
-                    val text = cleanJsResult(rawResult)
-                    val payload = JSObject().apply {
-                        put("id", item.id)
-                        put("text", text)
-                    }
-                    trigger("click", payload)
-                    if (autoClear) {
-                        currentItems = emptyList()
-                    }
-                    try {
-                        mode?.finish()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to finish ActionMode", e)
-                    }
-                }
-            }
-        } else {
-            val payload = JSObject().apply {
+        cancelDismissCheck()
+        val configuration = configurationRevision
+        val finishClick: (String) -> Unit = { text ->
+            trigger("click", JSObject().apply {
                 put("id", item.id)
-                put("text", "")
-            }
-            trigger("click", payload)
-            if (autoClear) {
-                currentItems = emptyList()
+                put("text", text)
+            })
+            clickPending = false
+            if (configuration == configurationRevision) {
+                performDismissCleanup()
             }
             try {
                 mode?.finish()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to finish ActionMode", e)
             }
+        }
+        val wv = webView
+        if (wv == null) {
+            finishClick("")
+        } else {
+            wv.evaluateJavascript("""
+                (() => {
+                    const el = document.activeElement;
+                    if (el && typeof el.selectionStart === 'number' && el.selectionStart !== el.selectionEnd)
+                        return el.value.substring(el.selectionStart, el.selectionEnd);
+                    return window.getSelection()?.toString() || '';
+                })()
+            """.trimIndent()) { finishClick(cleanJsResult(it)) }
         }
     }
 

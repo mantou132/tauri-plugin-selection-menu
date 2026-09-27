@@ -16,6 +16,8 @@ class SelectionActionModeCallback(
         const val CUSTOM_ITEM_ID_OFFSET = 500000
     }
 
+    private var displayedItems: List<SelectionMenuItem> = emptyList()
+
     override fun onGetContentRect(mode: ActionMode?, view: View?, outRect: Rect?) {
         if (wrapped is ActionMode.Callback2) {
             wrapped.onGetContentRect(mode, view, outRect)
@@ -63,6 +65,7 @@ class SelectionActionModeCallback(
     }
 
     private fun populateCustomItems(menu: Menu, items: List<SelectionMenuItem>) {
+        displayedItems = items
         menu.removeGroup(CUSTOM_GROUP_ID)
         for ((index, item) in items.withIndex()) {
             val menuItem = menu.add(
@@ -78,15 +81,14 @@ class SelectionActionModeCallback(
     override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
         if (item.groupId == CUSTOM_GROUP_ID) {
             val index = item.itemId - CUSTOM_ITEM_ID_OFFSET
-            val items = plugin.currentItems
-            if (index in items.indices) {
-                plugin.handleItemClick(items[index], mode)
+            if (index in displayedItems.indices) {
+                plugin.handleItemClick(displayedItems[index], mode)
             } else {
                 mode.finish()
             }
             return true
         }
-        plugin.handleNativeItemClicked()
+        plugin.handleNativeItemClicked(item.itemId)
         return wrapped.onActionItemClicked(mode, item)
     }
 

@@ -3,7 +3,7 @@ import Tauri
 import UIKit
 import WebKit
 
-struct SelectionMenuItem: Codable {
+struct SelectionMenuItem: Codable, Equatable {
     let id: String
     let label: String
 }
@@ -36,17 +36,17 @@ class SelectionMenuPlugin: Plugin {
 
     @objc public func set_menu_items(_ invoke: Invoke) throws {
         let args = try invoke.parseArgs(SetMenuItemsArgs.self)
-        guard let webview = self.webview,
-              let context = SelectionMenuHook.context(for: webview) else {
+        DispatchQueue.main.async {
+            if let webview = self.webview,
+               let context = SelectionMenuHook.context(for: webview) {
+                context.update(
+                    items: args.resolvedItems,
+                    removeNative: args.resolvedRemoveNative,
+                    autoClear: args.resolvedAutoClear
+                )
+            }
             invoke.resolve()
-            return
         }
-        context.update(
-            items: args.resolvedItems,
-            removeNative: args.resolvedRemoveNative,
-            autoClear: args.resolvedAutoClear
-        )
-        invoke.resolve()
     }
 
     @objc public func setMenuItems(_ invoke: Invoke) throws {
@@ -54,12 +54,10 @@ class SelectionMenuPlugin: Plugin {
     }
 
     @objc public func get_menu_items(_ invoke: Invoke) throws {
-        guard let webview = self.webview,
-              let context = SelectionMenuHook.context(for: webview) else {
-            invoke.resolve([SelectionMenuItem]())
-            return
+        DispatchQueue.main.async {
+            let items = self.webview.flatMap { SelectionMenuHook.context(for: $0)?.items } ?? []
+            invoke.resolve(items)
         }
-        invoke.resolve(context.items)
     }
 
     @objc public func getMenuItems(_ invoke: Invoke) throws {
@@ -67,13 +65,12 @@ class SelectionMenuPlugin: Plugin {
     }
 
     @objc public func clear_menu_items(_ invoke: Invoke) throws {
-        guard let webview = self.webview,
-              let context = SelectionMenuHook.context(for: webview) else {
+        DispatchQueue.main.async {
+            if let webview = self.webview {
+                SelectionMenuHook.context(for: webview)?.clear()
+            }
             invoke.resolve()
-            return
         }
-        context.clear()
-        invoke.resolve()
     }
 
     @objc public func clearMenuItems(_ invoke: Invoke) throws {

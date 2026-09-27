@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-selection-menu-api",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "author": "mantou132",
   "description": "Customize native text selection floating menu (capsule toolbar / context menu) on iOS and Android for Tauri v2.",
   "license": "MIT OR Apache-2.0",
@@ -24,7 +24,8 @@
   "scripts": {
     "build": "rollup -c",
     "prepublishOnly": "pnpm build",
-    "pretest": "pnpm build"
+    "pretest": "pnpm build",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
